@@ -58,6 +58,9 @@ for feature in srcroot.iter('{http://www.ordnancesurvey.co.uk/xml/namespaces/osg
 		featuretype = feature.find('{http://www.ordnancesurvey.co.uk/xml/namespaces/osgb}TopographicArea')
 		ftype = 'area'
 	if featuretype == None:
+		featuretype = feature.find('{http://www.ordnancesurvey.co.uk/xml/namespaces/osgb}TopographicPoint')
+		ftype = 'point'
+	if featuretype == None:
 		break
 
 
@@ -98,7 +101,7 @@ for feature in srcroot.iter('{http://www.ordnancesurvey.co.uk/xml/namespaces/osg
 			typedict[code].featurecount += 1
 
 for layer in typedict:
-	print typedict[layer].name, typedict[layer].featurecount, 'items'
+	print typedict[layer].name, typedict[layer].ftype, typedict[layer].featurecount, 'items'
 	typedict[layer].setbounds(str(maxlat),str(maxlon),str(minlat),str(minlon))
 	typedict[layer].write()
 	
