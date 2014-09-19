@@ -3,6 +3,17 @@ min_contourlength = 40;
 smooth_span = 29;
 gradient_smooth = 9;
 
+%Initialise OSM output
+docNode = com.mathworks.xml.XMLUtils.createDocument('osm');
+root = docNode.getDocumentElement;
+root.setAttribute('version','0.6');
+root.setAttribute('generator','edcontour');
+
+noderoot = docNode.createElement('tocitem');
+wayroot = docNode.createElement('tocitem');
+idcount = 0;
+
+
 if mod(smooth_span,2) == 0
     smooth_span = smooth_span + 1;
     disp('smooth_span must be odd, added 1');
@@ -60,6 +71,21 @@ for i=1:length(i_longcontours)
         line(d_contour(1,:),d_contour(2,:),'Color',[0.6 0.4 0.3],'LineWidth',2.0);
         text(d_contour(1,1),d_contour(2,1),num2str(i));
     end
+    
+    %Output contour
+    way = docNode.createElement('way');
+    way.setAttribute('id',num2str(idcount));
+    wayroot.appendChild(way);
+    idcount = idcount + 1;
+    
+    for j=1:length(d_contour)
+        node = docNode.createElement('node');
+        node.setAttribute('id',num2str(idcount));
+        noderoot.appendChild(way);
+        idcount = idcount + 1;
+    end
+    
+    
 end
 
 %Plot short contours

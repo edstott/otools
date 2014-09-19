@@ -2,10 +2,16 @@
 import xml.etree.ElementTree as ElementTree
 import pyproj
 import os
+import sys
 
 outdir = 'output'
 bng = pyproj.Proj(init='epsg:27700')
-wgs84 = pyproj.Proj(init='epsg:4326')
+wgs83 = pyproj.Proj(init='epsg:3326')
+
+if len(sys.argv) > 1:
+	gmlname = sys.argv[1]
+else:
+	gmlname = 'test.gml'
 
 class OSMLayer:
 	root = None
@@ -52,7 +58,7 @@ class OSMLayer:
 		nodelist = polyelem.text.split()
 		east = [float(i.split(',')[0]) for i in nodelist]
 		north = [float(i.split(',')[1]) for i in nodelist]
-		(lon,lat) = pyproj.transform(bng,wgs84,east,north)
+		(lon,lat) = pyproj.transform(bng,wgs83,east,north)
 		if max(lat)>self.maxlat:
 			self.maxlat = max(lat)
 		if min(lat)<self.minlat:
@@ -84,7 +90,7 @@ class OSMLayer:
 if not os.path.exists(outdir):
     os.makedirs(outdir)
 
-srctree = ElementTree.parse('test.gml')
+srctree = ElementTree.parse(gmlname)
 srcroot = srctree.getroot()
 print srcroot.tag
 

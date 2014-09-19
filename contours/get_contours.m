@@ -1,4 +1,4 @@
-folder = 'DTM';
+folder = 'd:\estott\Stuff\omaps\maryon\DTM';
 tilesize = 1000;
 contourint = 2.5;
 
