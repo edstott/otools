@@ -1,6 +1,7 @@
 import xml.etree.ElementTree as ElementTree
 import pyproj
 import os
+import numpy
 
 bng = pyproj.Proj(init='epsg:27700')
 wgs84 = pyproj.Proj(init='epsg:4326')
@@ -52,9 +53,8 @@ class OSMLayer:
 		
 		#Get coordinates
 		if type(polyelem) is list:
-			nodelist = polyelem.text.split()
-			east = [float(i.split(',')[0]) for i in nodelist]
-			north = [float(i.split(',')[1]) for i in nodelist]
+			east = [float(i.split(',')[0]) for i in polyelem]
+			north = [float(i.split(',')[1]) for i in polyelem]
 		else:
 			east = polyelem[:,0]
 			north = polyelem[:,1]
@@ -86,3 +86,18 @@ class OSMLayer:
 			
 	def addrel(self,rel):
 		self.relroot.append(rel)
+		
+	def addpoint(self,point,size):
+		global idcount
+		size = size/2.0
+		if type(point) is list:
+			east = float(point[0].split(',')[0])
+			north = float(point[0].split(',')[1])
+		else:
+			east = point[0]
+			north = point[1]
+		
+		self.addway(numpy.array([[east-size, north], [east+size, north]]))
+		self.addway(numpy.array([[east, north-size], [east, north+size]]))
+		
+		

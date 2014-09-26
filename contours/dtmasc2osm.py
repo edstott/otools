@@ -4,8 +4,13 @@ import re
 import numpy
 import matplotlib.pyplot as pyplot
 import matplotlib._cntr as cntr
-import OSMLayer
 import sys
+import inspect
+
+OSMLayer_folder = os.path.realpath(os.path.abspath(os.path.join(os.path.split(inspect.getfile(inspect.currentframe() ))[0],"../OSMLayer")))
+if OSMLayer_folder not in sys.path:
+	sys.path.insert(0, OSMLayer_folder)
+import OSMLayer
 
 if len(sys.argv) > 1:
 	srcdir = sys.argv[1]
