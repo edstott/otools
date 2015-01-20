@@ -5,42 +5,26 @@
     <gml:null>unknown</gml:null>
   </gml:boundedBy>
   <osgb:queryTime>2013-09-16T11:10:29</osgb:queryTime>
-  <osgb:topographicMember>
-    <osgb:TopographicArea fid="osgb1000001770298856">
-      <osgb:featureCode>10172</osgb:featureCode>
-      <osgb:version>5</osgb:version>
-      <osgb:versionDate>2008-06-03</osgb:versionDate>
-      <osgb:theme>Roads Tracks And Paths</osgb:theme>
-      <osgb:calculatedAreaValue>321.162308</osgb:calculatedAreaValue>
+<osgb:topographicMember>
+    <osgb:TopographicPoint fid="osgb1000001770295798">
+      <osgb:featureCode>10048</osgb:featureCode>
+      <osgb:version>1</osgb:version>
+      <osgb:versionDate>2001-11-08</osgb:versionDate>
+      <osgb:theme>Land</osgb:theme>
+      <osgb:accuracyOfPosition>1.0m</osgb:accuracyOfPosition>
       <osgb:changeHistory>
-        <osgb:changeDate>2001-06-27</osgb:changeDate>
-        <osgb:reasonForChange>New</osgb:reasonForChange>
+        <osgb:changeDate>1993-02-01</osgb:changeDate>
+        <osgb:reasonForChange>Reclassified</osgb:reasonForChange>
       </osgb:changeHistory>
-      <osgb:changeHistory>
-        <osgb:changeDate>2003-03-05</osgb:changeDate>
-        <osgb:reasonForChange>Position</osgb:reasonForChange>
-      </osgb:changeHistory>
-      <osgb:changeHistory>
-        <osgb:changeDate>2008-05-03</osgb:changeDate>
-        <osgb:reasonForChange>Attributes</osgb:reasonForChange>
-      </osgb:changeHistory>
-      <osgb:descriptiveGroup>Road Or Track</osgb:descriptiveGroup>
-      <osgb:make>Manmade</osgb:make>
+      <osgb:descriptiveGroup>General Feature</osgb:descriptiveGroup>
+      <osgb:descriptiveTerm>Positioned Nonconiferous Tree</osgb:descriptiveTerm>
+      <osgb:make>Natural</osgb:make>
       <osgb:physicalLevel>50</osgb:physicalLevel>
-      <osgb:polygon>
-        <gml:Polygon srsName="osgb:BNG">
-          <gml:outerBoundaryIs>
-            <gml:LinearRing>
-              <gml:coordinates>531711.96,178903.8 531718.7,178909.65 531729.65,178918.25 531723.8,178925.1 531717.65,178932.35 531715.32,178933.97 531702.59,178926.38 531705.3,178920.25 531705.75,178919.15 531705.8,178919.05 531705.8,178918.7 531705.7,178918.35 531705.6,178918.15 531705.35,178917.9 531705.3,178917.8 531705.3,178917.7 531703.7,178917.25 531709.85,178905.5 531710.0,178905.55 531710.6,178905.55 531711.15,178905.3 531711.6,178905.2 531711.8,178905.05 531711.96,178903.8</gml:coordinates>
-            </gml:LinearRing>
-          </gml:outerBoundaryIs>
-          <gml:innerBoundaryIs>
-            <gml:LinearRing>
-              <gml:coordinates>531713.3,178918.8 531710.3,178928.7 531710.65,178928.65 531712.6,178926.25 531716.2,178921.95 531719.75,178917.7 531720.0,178917.3 531719.6,178917.35 531713.3,178918.8</gml:coordinates>
-            </gml:LinearRing>
-          </gml:innerBoundaryIs>
-        </gml:Polygon>
-      </osgb:polygon>
-    </osgb:TopographicArea>
+      <osgb:point>
+        <gml:Point srsName="osgb:BNG">
+          <gml:coordinates>541869.6,178866.85</gml:coordinates>
+        </gml:Point>
+      </osgb:point>
+    </osgb:TopographicPoint>
   </osgb:topographicMember>
 </osgb:FeatureCollection>
