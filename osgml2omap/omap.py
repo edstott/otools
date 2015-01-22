@@ -3,12 +3,13 @@ import pyproj
 import math
 
 DEFAULT_MAP_UNITS = 1E-6
-DEFAULT_MAP_SCALE = 5E3
+DEFAULT_MAP_SCALE = 5000
 DEFAULT_UTM_ZONE = 31
-DEFAULT_CRS = 'epsg:2040'
-GEO_CRS = 'epsg:4326'
+DEFAULT_CRS = 'epsg:32631' #WGS 84 / UTM zone 31N
+GEO_CRS = 'epsg:4326' #WGS 84
 ISSOM_SYMBOLS_FILE = 'ISSOM_symbols.xml'
 ISSOM_COLOURS_FILE = 'ISSOM_colours.xml'
+OMAP_DEFAULTS_FILE = 'OMAP_defaults.xml'
 
 DOMimpl = getDOMImplementation()
 
@@ -23,6 +24,7 @@ class omap:
 	originX = 0
 	originY = 0
 	UTMZone = DEFAULT_UTM_ZONE
+	grivation = 0.0
 	
 	mapUnits = DEFAULT_MAP_UNITS
 	mapScale = DEFAULT_MAP_SCALE
@@ -67,6 +69,12 @@ class omap:
 		self.objectsNode.setAttribute('count','0')
 		partNode.appendChild(self.objectsNode)
 		
+		#Create templates, view, print, barrier
+		defaultsDoc = parse(OMAP_DEFAULTS_FILE)
+		for defaultsNode in defaultsDoc.documentElement.childNodes:
+			self.mapNode.appendChild(defaultsNode.cloneNode(deep=1))
+		
+		
 	def setGMLCRS(self,CRSdef):
 		self.GMLCRS = pyproj.Proj(init=CRSdef)
 		
@@ -76,38 +84,58 @@ class omap:
 	#Set the map origin to the south west corner of bounding box
 	def setMapOrigin(self):
 		NewOriginX = float('Inf')
-		NewOriginY = float('Inf')
+		NewOriginY = -float('Inf')
 	
-		for coordNode in self.objectsNode.getElementsByTagName('coord'):
-			if float(coordNode.getAttribute('x')) < NewOriginX:
-				NewOriginX = float(coordNode.getAttribute('x'))
-			if float(coordNode.getAttribute('y')) < NewOriginY:
-				NewOriginY = float(coordNode.getAttribute('y'))
+		#Find offset from current origin
+		for coordsNode in self.objectsNode.getElementsByTagName('coords'):
+			for coordNode in coordsNode.childNodes:
+				if float(coordNode.getAttribute('x')) < NewOriginX:
+					NewOriginX = float(coordNode.getAttribute('x'))
+				if float(coordNode.getAttribute('y')) > NewOriginY:
+					NewOriginY = float(coordNode.getAttribute('y'))
 				
-		if NewOriginX < float('Inf') and NewOriginX < float('Inf'):					
-			for coordNode in self.objectsNode.getElementsByTagName('coord'):
-				x = float(coordNode.getAttribute('x'))-NewOriginX
-				y = float(coordNode.getAttribute('y'))-NewOriginY
-				coordNode.setAttribute('x',str(x))
-				coordNode.setAttribute('y',str(y))
-				
+		if NewOriginX < float('Inf') and NewOriginY > -float('Inf'):
+			
+			#Calculate new origin
 			self.originX += NewOriginX*self.mapScale*self.mapUnits
-			self.originY += NewOriginY*self.mapScale*self.mapUnits
+			self.originY -= NewOriginY*self.mapScale*self.mapUnits
 			self.projRefPointNode.setAttribute('x',str(self.originX))
 			self.projRefPointNode.setAttribute('y',str(self.originY))
 			
+			#Calculate new geographic origin
 			(lon,lat) = pyproj.transform(self.OMAPCRS,self.geoCRS,self.originX,self.originY)
 			self.geoRefPointDegNode.setAttribute('lon',str(lon))
 			self.geoRefPointDegNode.setAttribute('lat',str(lat))
 			self.geoRefPointNode.setAttribute('lon',str(lon*math.pi/180))
 			self.geoRefPointNode.setAttribute('lat',str(lat*math.pi/180))
+			print('Setting map origin to '+str(lat)+'N '+str(lon)+'E')
+
+			#Calculate grid convergence angle
+			relLon = (self.UTMZone-30)*math.pi/60 - math.radians(lon)
+			self.grivation = math.atan(math.tan(relLon)*math.sin(math.radians(lat)))
+			print('Rotating map by grid convergence '+str(math.degrees(self.grivation))+chr(0x00B0))
+			self.geoRefNode.setAttribute('grivation',str(math.degrees(self.grivation)))
 			
+			#Calculate rotation coefficients
+			rota = math.cos(-self.grivation)
+			rotb = math.sin(-self.grivation)
+		
+			for coordsNode in self.objectsNode.getElementsByTagName('coords'):
+				for coordNode in coordsNode.childNodes:
+					x = float(coordNode.getAttribute('x'))-NewOriginX
+					y = float(coordNode.getAttribute('y'))-NewOriginY
+					coordNode.setAttribute('x',str(int(rota*x-rotb*y)))
+					coordNode.setAttribute('y',str(int(rota*y+rotb*x)))
 			
 	def addGMLObjects(self,GMLObjects,ISSOMCode):
 		objcount = 0
 		for GMLnode in GMLObjects:
+			if ISSOMCode == '':
+				print('No ISSOM code given')
+				print(GMLnode.toxml())
+				continue
 			if not ISSOMCode in self.symbolMap:
-				print('No symbol for code '+ISSOMCode)
+				print('No symbol for ISSOM code '+ISSOMCode)
 				break
 			objNode = self.doc.createElement('object')
 			objNode.setAttribute('symbol',self.symbolMap[ISSOMCode])
@@ -118,6 +146,7 @@ class omap:
 				coordsNode.setAttribute('count','1')
 				objNode.setAttribute('type','0')
 				coordsNode.appendChild(self.convertGMLcoords(GMLnode)[0])
+				objNode.appendChild(coordsNode)
 				
 			elif GMLnode.tagName == 'gml:Polygon':
 				coordCount = 0	
@@ -132,6 +161,8 @@ class omap:
 					for coordNode in innerCoordsNodes:
 						coordsNode.appendChild(coordNode)
 				coordsNode.setAttribute('count',str(coordCount))
+				objNode.appendChild(coordsNode)
+				objNode.appendChild(self.blankPatternNode())
 				
 			else: #Line feature
 				objNode.setAttribute('type','1')
@@ -139,12 +170,14 @@ class omap:
 				for coordNode in coordNodes:
 						coordsNode.appendChild(coordNode)
 				coordsNode.setAttribute('count',str(len(coordNodes)))
+				objNode.appendChild(coordsNode)
+				objNode.appendChild(self.blankPatternNode())
 			
-			objNode.appendChild(coordsNode)
 			self.objectsNode.appendChild(objNode)
 			objcount += 1
 		
 		self.objectsNode.setAttribute('count',str(int(self.objectsNode.getAttribute('count'))+objcount))
+		return objcount
 			
 	def convertGMLcoords(self,GMLNode):
 		coordNodes = []
@@ -154,8 +187,8 @@ class omap:
 				xy = coord.split(',')
 				if len(xy)==2:
 					(UTMx,UTMy)=pyproj.transform(self.GMLCRS,self.OMAPCRS,float(xy[0]),float(xy[1]))
-					x = (UTMx-self.originX)/self.mapScale/self.mapUnits
-					y = (UTMy-self.originY)/self.mapScale/self.mapUnits
+					x = int((UTMx-self.originX)/self.mapScale/self.mapUnits)
+					y = -int((UTMy-self.originY)/self.mapScale/self.mapUnits)
 					
 					coordNode = self.doc.createElement('coord')
 					coordNode.setAttribute('x',str(x))
@@ -178,20 +211,20 @@ class omap:
 	
 	def initGeoreference(self):
 
-		geoRefNode = self.doc.createElement('georeferencing')
-		geoRefNode.setAttribute('scale',str(self.mapScale))
-		geoRefNode.setAttribute('declination','0.00')
-		geoRefNode.setAttribute('grivation','0.00')
-		self.mapNode.appendChild(geoRefNode)
+		self.geoRefNode = self.doc.createElement('georeferencing')
+		self.geoRefNode.setAttribute('scale',str(self.mapScale))
+		self.geoRefNode.setAttribute('declination','0.00')
+		self.geoRefNode.setAttribute('grivation','0.00')
+		self.mapNode.appendChild(self.geoRefNode)
 		
-		mapRefPointNode = self.doc.createElement('ref_point')
-		mapRefPointNode.setAttribute('x','0')
-		mapRefPointNode.setAttribute('y','0')
-		geoRefNode.appendChild(mapRefPointNode)
+		self.mapRefPointNode = self.doc.createElement('ref_point')
+		self.mapRefPointNode.setAttribute('x','0')
+		self.mapRefPointNode.setAttribute('y','0')
+		self.geoRefNode.appendChild(self.mapRefPointNode)
 		
 		projCRSNode = self.doc.createElement('projected_crs')
 		projCRSNode.setAttribute('id','UTM')
-		geoRefNode.appendChild(projCRSNode)
+		self.geoRefNode.appendChild(projCRSNode)
 		
 		projCRSSpecNode = self.doc.createElement('spec')
 		projCRSSpecNode.setAttribute('language','PROJ.4')
@@ -209,11 +242,11 @@ class omap:
 		
 		geoCRSNode = self.doc.createElement('geographic_crs')
 		geoCRSNode.setAttribute('id','Geographic coordinates')
-		geoRefNode.appendChild(geoCRSNode)
+		self.geoRefNode.appendChild(geoCRSNode)
 		
 		geoCRSSpecNode = self.doc.createElement('spec')
 		geoCRSSpecNode.setAttribute('language','PROJ.4')
-		geoCRSSpecNode.appendChild(self.doc.createTextNode('+proj=utm +datum=WGS84'))
+		geoCRSSpecNode.appendChild(self.doc.createTextNode('+proj=latlong +datum=WGS84'))
 		geoCRSNode.appendChild(geoCRSSpecNode)
 		
 		self.geoRefPointNode = self.doc.createElement('ref_point')
@@ -225,5 +258,14 @@ class omap:
 		self.geoRefPointDegNode.setAttribute('lat',str(self.originX))
 		self.geoRefPointDegNode.setAttribute('lon',str(self.originY))
 		geoCRSNode.appendChild(self.geoRefPointDegNode)
+		
+	def blankPatternNode(self):
+		patternNode = self.doc.createElement('pattern')
+		patternNode.setAttribute('rotation','0')
+		coordNode = self.doc.createElement('coord')
+		coordNode.setAttribute('x','0')
+		coordNode.setAttribute('y','0')
+		patternNode.appendChild(coordNode)
+		return patternNode
 		
 		
