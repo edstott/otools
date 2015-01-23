@@ -1,11 +1,16 @@
+#!/usr/bin/python
+
 from xml.dom import pulldom
-import sys
+import sys,os,inspect
 import OS_ISSOM_MAP
+
+omap_folder = os.path.realpath(os.path.abspath(os.path.join(os.path.split(inspect.getfile(inspect.currentframe() ))[0],"../omap")))
+if omap_folder not in sys.path:
+	sys.path.insert(0, omap_folder)
 import omap
 
 GMLCRScode = 'epsg:27700' #OSGB 1936 / British National Grid
 OMAPCRScode = 'epsg:32631' #WGS 84 / UTM zone 31N
-DEFAULT_ISSOM_CODE = '704'
 
 def getText(nodelist):
     rc = []
@@ -18,7 +23,8 @@ if len(sys.argv) > 1:
 	gmlname = sys.argv[1]
 else:
 	gmlname = 'test.gml'
-	
+
+print('Reading features from '+gmlname)
 unrecognisedFeatures = {};
 #misfitOMAPs = {};
 mainOMAP = omap.omap();
@@ -56,7 +62,7 @@ for event,node in srcstrm:
 			if isinstance(OS_ISSOM_MAP.map[featureCode],str):
 				ISSOMCode = OS_ISSOM_MAP.map[featureCode]
 			else:		
-				featureDataNodes = node.getElementsByTagName('osgb:make')+node.getElementsByTagName('osgb:physicalPresence')
+				featureDataNodes = [element for featureTag in OS_ISSOM_MAP.addFeatureTags for element in node.getElementsByTagName(featureTag)] 
 				featureStrings = [getText(featureDataNode.childNodes) for featureDataNode in featureDataNodes]
 				for featureString in featureStrings:
 					if featureString in OS_ISSOM_MAP.map[featureCode]:
@@ -78,10 +84,10 @@ for event,node in srcstrm:
 		
 		if not ISSOMCode == '':
 			objectCount += mainOMAP.addGMLObjects(GMLObjects,ISSOMCode)
+			print('\r'+str(objectCount)+' features mapped'),
 			
 
-print(str(objectCount)+' objects added')
-
+print()
 fileSplit = gmlname.split('.')
 fileSplit[-1] = 'xmap'
 outFileName = '.'.join(fileSplit)

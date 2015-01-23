@@ -45,7 +45,7 @@ map = {
 '10175':'',			#Speed bumps
 '10179':'',			#Unknown
 '10183':'529.0.1',	#Roadside	
-'10185':'526.1',	#Structures: towers, jetties, walkways, bridges, ruins - mapped as buildings
+'10185':'529.0.2',	#Structures: towers, jetties, walkways, bridges, ruins - mapped as paved
 '10186':'',			#Posts, post boxes
 '10187':'529.0.2',	#Elevated walkway
 '10189':'529.1.1',	#Electricity pylon outline
@@ -61,3 +61,4 @@ map = {
 '10216':'',			#Unknown
 '10217':'714'		#Construction site
 }
+addFeatureTags = ['osgb:make', 'osgb:physicalPresence']
