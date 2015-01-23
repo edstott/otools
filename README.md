@@ -30,10 +30,11 @@ osgml2omap will notify the user if any features are encountered without a mappin
 
 ##Current conversion limitations
 * OS feature 10185 is used for 'structures', which can include towers, jetties, walkways, bridges and ruins. Passable and unpassbale features are not distinguished and they are all mapped as paved areas with a border.
-* Impassable boundaries are included around and between areas of private land. These should be removed to declutter the map.
+* Impassable boundaries are shown around and between areas of private land. These should be removed to declutter the map.
 * A number of watercourse point features are given the waterhole symbol, even though they might not be significant.
 * OS data maps railway lines with one feature per rail and so a double-track railway will be given be mapped as four railway lines
-* A range of line features are mapped as impassbale walls if the OS data calls them an 'obstruction' this can include crossable walls and fences and vegetation boundaries
+* Certain line features are mapped as impassbale walls if the OS data calls them an 'obstruction' this can include crossable walls and fences and vegetation boundaries
+* Canopies are not recognised - they are often separate features to adjoining buildings but are still mapped as impassable buildings
 
 #osgml2osm
 osgml2osm.py - convert convert Ordnance Survey GML data to OpenStreetmap layers
