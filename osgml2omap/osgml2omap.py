@@ -84,7 +84,7 @@ for event,node in srcstrm:
 		
 		if not ISSOMCode == '':
 			objectCount += mainOMAP.addGMLObjects(GMLObjects,ISSOMCode)
-			print('\r'+str(objectCount)+' features mapped'),
+			print('\r'+str(objectCount)+' features mapped',end="")
 			
 
 print()
