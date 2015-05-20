@@ -1,15 +1,23 @@
 from xml.dom.minidom import getDOMImplementation,parse
 import pyproj
 import math
+import os
+import numpy
 
 DEFAULT_MAP_UNITS = 1E-6
 DEFAULT_MAP_SCALE = 5000
 DEFAULT_UTM_ZONE = 31
 DEFAULT_CRS = 'epsg:32631' #WGS 84 / UTM zone 31N
 GEO_CRS = 'epsg:4326' #WGS 84
-ISSOM_SYMBOLS_FILE = 'ISSOM_symbols.xml'
-ISSOM_COLOURS_FILE = 'ISSOM_colours.xml'
-OMAP_DEFAULTS_FILE = 'OMAP_defaults.xml'
+MODULE_PATH = os.path.dirname(__file__)
+#ISSOM_SYMBOLS_FILE = os.path.join(MODULE_PATH,'ISSOM_symbols.xml')
+#ISSOM_COLOURS_FILE = os.path.join(MODULE_PATH,'ISSOM_colours.xml')
+#CONTOUR_SYMBOLS_FILE = os.path.join(MODULE_PATH,'contour_symbols.xml')
+#CONTOUR_COLOURS_FILE = os.path.join(MODULE_PATH,'contour_colours.xml')
+OMAP_DEFAULTS_FILE = os.path.join(MODULE_PATH,'OMAP_defaults.xml')
+
+mapTypes = {'ISSOM':('ISSOM_colours.xml','ISSOM_symbols.xml'),
+	'contour':('ISSOM_colours.xml','contour_symbols.xml')}
 
 DOMimpl = getDOMImplementation()
 
@@ -30,7 +38,17 @@ class omap:
 	mapScale = DEFAULT_MAP_SCALE
 	symbolMap = {}
 
-	def __init__(self):
+	def __init__(self,**kwargs):
+		
+		if ('map_type' in kwargs):
+			try:
+				(coloursFile,symbolsFile) = mapTypes[kwargs['map_type']]
+			except KeyError:
+				print('Bad map type given')
+				raise
+		else:
+			(coloursFile,symbolsFile) = mapTypes['ISSOM']
+	
 		self.doc = DOMimpl.createDocument(None,"map",None)
 		self.mapNode = self.doc.documentElement
 		self.mapNode.setAttribute('xmlns','http://oorienteering.sourceforge.net/mapper/xml/v2')
@@ -44,11 +62,11 @@ class omap:
 		self.geoCRS = pyproj.Proj(init=GEO_CRS)
 		
 		#Create colours
-		colourDoc = parse(ISSOM_COLOURS_FILE)
+		colourDoc = parse(os.path.join(MODULE_PATH,coloursFile))
 		self.mapNode.appendChild(colourDoc.documentElement)
 		
 		#Create symbols
-		symbolDoc = parse(ISSOM_SYMBOLS_FILE)
+		symbolDoc = parse(os.path.join(MODULE_PATH,symbolsFile))
 		for symbolNode in symbolDoc.documentElement.getElementsByTagName('symbol'):
 			symbolID = symbolNode.getAttribute('id')
 			symbolCode = symbolNode.getAttribute('code')
@@ -82,17 +100,25 @@ class omap:
 		self.OMAPCRS = pyproj.Proj(init=CRSdef)
 		
 	#Set the map origin to the south west corner of bounding box
-	def setMapOrigin(self):
-		NewOriginX = float('Inf')
-		NewOriginY = -float('Inf')
+	def setMapOrigin(self,**kwargs):
 	
-		#Find offset from current origin
-		for coordsNode in self.objectsNode.getElementsByTagName('coords'):
-			for coordNode in coordsNode.childNodes:
-				if float(coordNode.getAttribute('x')) < NewOriginX:
-					NewOriginX = float(coordNode.getAttribute('x'))
-				if float(coordNode.getAttribute('y')) > NewOriginY:
-					NewOriginY = float(coordNode.getAttribute('y'))
+		#Convert new origin to map units
+		if 'UTM_origin' in kwargs:
+			newOrigin = kwargs['UTM_origin']
+			NewOriginX = newOrigin[0]/(self.mapScale*self.mapUnits)-self.originX
+			NewOriginY = -newOrigin[1]/(self.mapScale*self.mapUnits)-self.originY
+		else: #Find new origin from bounding box if none is given
+		
+			NewOriginX = float('Inf')
+			NewOriginY = -float('Inf')
+	
+			#Find offset of each coordinate from current origin
+			for coordsNode in self.objectsNode.getElementsByTagName('coords'):
+				for coordNode in coordsNode.childNodes:
+					if float(coordNode.getAttribute('x')) < NewOriginX:
+						NewOriginX = float(coordNode.getAttribute('x'))
+					if float(coordNode.getAttribute('y')) > NewOriginY:
+						NewOriginY = float(coordNode.getAttribute('y'))
 				
 		if NewOriginX < float('Inf') and NewOriginY > -float('Inf'):
 			
@@ -127,6 +153,37 @@ class omap:
 					coordNode.setAttribute('x',str(int(rota*x-rotb*y)))
 					coordNode.setAttribute('y',str(int(rota*y+rotb*x)))
 			
+	def addLine(self,Line,ISSOMCode):
+	
+		#Check ISSOMCode given
+		if ISSOMCode == '':
+			print('No ISSOM code given')
+			return
+		if not ISSOMCode in self.symbolMap:
+			print('No symbol for ISSOM code '+ISSOMCode)
+			return
+		
+		#Initialise node for new line
+		objNode = self.doc.createElement('object')
+		objNode.setAttribute('symbol',self.symbolMap[ISSOMCode])
+		coordsNode = self.doc.createElement('coords')
+		objNode.appendChild(coordsNode)
+		
+		#Add Line
+		objNode.setAttribute('type','1')
+		coordNodes = self.convertLine(Line)
+		for coordNode in coordNodes:
+				coordsNode.appendChild(coordNode)
+		coordsNode.setAttribute('count',str(len(coordNodes)))
+		objNode.appendChild(self.blankPatternNode())
+		
+		#Add to objects
+		self.objectsNode.appendChild(objNode)
+		
+		#Increment object count
+		self.objectsNode.setAttribute('count',str(int(self.objectsNode.getAttribute('count'))+1))		
+		
+	
 	def addGMLObjects(self,GMLObjects,ISSOMCode):
 		objcount = 0
 		for GMLnode in GMLObjects:
@@ -178,7 +235,25 @@ class omap:
 		
 		self.objectsNode.setAttribute('count',str(int(self.objectsNode.getAttribute('count'))+objcount))
 		return objcount
+	
+	def convertLine(self,line):
+		coordNodes = []
+		for xy in line:
+			(UTMx,UTMy)=pyproj.transform(self.GMLCRS,self.OMAPCRS,float(xy[0]),float(xy[1]))
+			x = int((UTMx-self.originX)/self.mapScale/self.mapUnits)
+			y = -int((UTMy-self.originY)/self.mapScale/self.mapUnits)
+					
+			coordNode = self.doc.createElement('coord')
+			coordNode.setAttribute('x',str(x))
+			coordNode.setAttribute('y',str(y))
+			coordNodes.append(coordNode)
+		
+		if numpy.linalg.norm(line[0,:]-line[-1,:]) < 1.0:
+			coordNodes[-1].setAttribute('flags','18')
+		
+		return coordNodes
 			
+	
 	def convertGMLcoords(self,GMLNode):
 		coordNodes = []
 		for GMLCoordNode in GMLNode.getElementsByTagName('gml:coordinates'):

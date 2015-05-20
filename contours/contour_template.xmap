@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<map xmlns="http://oorienteering.sourceforge.net/mapper/xml/v2" version="5">
+    <notes></notes>
+    <georeferencing scale="5000"/>
+    <colors count="2">
+        <color priority="0" name="Brown for contours" c="0.000" m="0.560" y="1.000" k="0.180" opacity="1.000">
+            <spotcolors>
+                <component factor="1" spotcolor="1"/>
+            </spotcolors>
+            <cmyk method="spotcolor"/>
+            <rgb method="spotcolor" r="0.820" g="0.361" b="0.000"/>
+        </color>
+        <color priority="1" name="Brown" c="0.000" m="0.560" y="1.000" k="0.180" opacity="1.000">
+            <spotcolors>
+                <namedcolor>BROWN</namedcolor>
+            </spotcolors>
+            <cmyk method="custom"/>
+            <rgb method="custom" r="0.820" g="0.361" b="0.000"/>
+        </color>
+    </colors>
+    <symbols count="3">
+        <symbol type="2" id="0" code="101" name="Contour">
+            <description>A line joining points of equal height. The standard vertical interval between contours is 2 or 2.5 m. To emphasize the 3-dimensional effect of the contour line image, contour lines shall be represented as continuous lines through all symbols, also building (526.1) and canopy (526.2). However, contour lines shall be cut out for better legibility, if they touch the following symbols: small earth wall (108.1), small knoll (112), small elongated knoll (113), small depression (115), pit or hole (116), prominent landform feature (118), step or edge of paved area (529.1). The relative height difference between neighbouring features must be represented on the map as accurately as possible.  Absolute height accuracy is of less importance. It is permissible to alter the height of a contour slightly if this will improve the representation of a feature. This deviation should not exceed 25% of the contour interval and attention must be paid to neighbouring features. The smallest bend in a contour is 0.4 mm from centre to centre of the lines.</description>
+            <line_symbol color="0" line_width="210" minimum_length="0" join_style="2" cap_style="1" pointed_cap_length="1000" segment_length="4000" end_length="0" show_at_least_one_symbol="true" minimum_mid_symbol_count="0" minimum_mid_symbol_count_when_closed="0" dash_length="4000" break_length="1000" dashes_in_group="1" in_group_break_length="500" mid_symbols_per_spot="1" mid_symbol_distance="0"/>
+        </symbol>
+        <symbol type="2" id="1" code="102" name="Index contour">
+            <description>Every fifth contour shall be drawn with a thicker line. This is an aid to the quick assessment of height difference and the overall shape of the terrain surface.  Where an index contour coincides with an area of much detail, it may be shown with symbol contour (101).</description>
+            <line_symbol color="0" line_width="350" minimum_length="0" join_style="2" cap_style="1" pointed_cap_length="1000" segment_length="4000" end_length="0" show_at_least_one_symbol="true" minimum_mid_symbol_count="0" minimum_mid_symbol_count_when_closed="0" dash_length="4000" break_length="1000" dashes_in_group="1" in_group_break_length="500" mid_symbols_per_spot="1" mid_symbol_distance="0"/>
+        </symbol>
+        <symbol type="2" id="2" code="101.1" name="Helper Contour" is_helper_symbol="true">
+            <description>Intermediate-level helper contour for identifying small contour features</description>
+            <line_symbol color="0" line_width="50" minimum_length="0" join_style="2" cap_style="1" pointed_cap_length="1000" segment_length="4000" end_length="0" show_at_least_one_symbol="true" minimum_mid_symbol_count="0" minimum_mid_symbol_count_when_closed="0" dash_length="4000" break_length="1000" dashes_in_group="1" in_group_break_length="500" mid_symbols_per_spot="1" mid_symbol_distance="0">
+            </line_symbol>
+        </symbol>
+    </symbols>
+    <parts count="1" current="0">
+        <part name="default part">
+            <objects count="0"/>
+        </part>
+    </parts>
+    <templates count="0" first_front_template="0">
+        <defaults use_meters_per_pixel="true" meters_per_pixel="0" dpi="0" scale="0"/>
+    </templates>
+    <view>
+        <grid color="#646464" display="0" alignment="0" additional_rotation="0" unit="1" h_spacing="500" v_spacing="500" h_offset="0" v_offset="0" snapping_enabled="true"/>
+        <map_view zoom="1" rotation="0" position_x="0" position_y="0" view_x="0" view_y="0" drag_offset_x="0" drag_offset_y="0">
+            <map opacity="1"/>
+            <templates count="0"/>
+        </map_view>
+    </view>
+    <print scale="5000" resolution="600" mode="vector">
+        <page_format paper_size="A4" orientation="portrait" h_overlap="5.00" v_overlap="5.00">
+            <dimensions width="210.000" height="297.000"/>
+            <page_rect left="4.230" top="5.000" width="201.540" height="287.000"/>
+        </page_format>
+        <print_area left="4.230" top="5.000" width="201.540" height="287.000"/>
+    </print>
+    <barrier version="6" required="0.6.0">
+        <undo/>
+        <redo/>
+    </barrier>
+</map>
