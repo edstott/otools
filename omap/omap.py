@@ -31,7 +31,6 @@ def getText(nodelist):
 class omap:
 	originX = 0
 	originY = 0
-	UTMZone = DEFAULT_UTM_ZONE
 	grivation = 0.0
 	
 	mapUnits = DEFAULT_MAP_UNITS
@@ -57,8 +56,8 @@ class omap:
 		self.mapNode.appendChild(self.doc.createElement('notes'))
 		
 		#Create georeferencing information
-		self.initGeoreference()	
-		self.OMAPCRS = pyproj.Proj(init=DEFAULT_CRS)
+		self.initGeoreference()
+		self.OMAPCRS = None
 		self.geoCRS = pyproj.Proj(init=GEO_CRS)
 		
 		#Create colours
@@ -93,11 +92,15 @@ class omap:
 			self.mapNode.appendChild(defaultsNode.cloneNode(deep=1))
 		
 		
-	def setGMLCRS(self,CRSdef):
-		self.GMLCRS = pyproj.Proj(init=CRSdef)
+	def setGMLCRS(self,**kwargs):
+		self.GMLCRS = pyproj.Proj(**kwargs)
+		print('Setting source CRS with Proj parameters')
+		print(kwargs)
 		
-	def setOMAPCRS(self,CRSdef):
-		self.OMAPCRS = pyproj.Proj(init=CRSdef)
+	def setOMAPCRS(self,**kwargs):
+		self.OMAPCRS = pyproj.Proj(**kwargs)
+		print('Setting map CRS with Proj parameters')
+		print(kwargs)
 		
 	#Set the map origin to the south west corner of bounding box
 	def setMapOrigin(self,**kwargs):
@@ -136,10 +139,10 @@ class omap:
 			self.geoRefPointNode.setAttribute('lat',str(lat*math.pi/180))
 			print('Setting map origin to '+str(lat)+'N '+str(lon)+'E')
 
-			#Calculate grid convergence angle
-			relLon = (self.UTMZone-30)*math.pi/60 - math.radians(lon)
+			#Calculate grid convergence
+			relLon = (self.UTMZone-30.5)*math.pi/30 - math.radians(lon)
 			self.grivation = math.atan(math.tan(relLon)*math.sin(math.radians(lat)))
-			print('Rotating map by grid convergence '+str(math.degrees(self.grivation))+chr(0x00B0))
+			print('Rotating map for grid convergence '+str(math.degrees(self.grivation))+chr(0x00B0))
 			self.geoRefNode.setAttribute('grivation',str(math.degrees(self.grivation)))
 			
 			#Calculate rotation coefficients
@@ -301,18 +304,14 @@ class omap:
 		projCRSNode.setAttribute('id','UTM')
 		self.geoRefNode.appendChild(projCRSNode)
 		
-		projCRSSpecNode = self.doc.createElement('spec')
-		projCRSSpecNode.setAttribute('language','PROJ.4')
-		projCRSSpecNode.appendChild(self.doc.createTextNode('+proj=utm +datum=WGS84 +zone='+str(self.UTMZone)))
-		projCRSNode.appendChild(projCRSSpecNode)
+		self.projCRSSpecNode = self.doc.createElement('spec')
+		self.projCRSSpecNode.setAttribute('language','PROJ.4')
+		projCRSNode.appendChild(self.projCRSSpecNode)
 		
-		projCRSParamNode = self.doc.createElement('parameter')
-		projCRSParamNode.appendChild(self.doc.createTextNode(str(self.UTMZone)+' N'))
-		projCRSNode.appendChild(projCRSParamNode)
+		self.projCRSParamNode = self.doc.createElement('parameter')
+		projCRSNode.appendChild(self.projCRSParamNode)
 					
 		self.projRefPointNode = self.doc.createElement('ref_point')
-		self.projRefPointNode.setAttribute('x',str(self.originX))
-		self.projRefPointNode.setAttribute('y',str(self.originY))
 		projCRSNode.appendChild(self.projRefPointNode)
 		
 		geoCRSNode = self.doc.createElement('geographic_crs')
@@ -325,14 +324,20 @@ class omap:
 		geoCRSNode.appendChild(geoCRSSpecNode)
 		
 		self.geoRefPointNode = self.doc.createElement('ref_point')
-		self.geoRefPointNode.setAttribute('lat',str(self.originX))
-		self.geoRefPointNode.setAttribute('lon',str(self.originY))
 		geoCRSNode.appendChild(self.geoRefPointNode)
 		
 		self.geoRefPointDegNode = self.doc.createElement('ref_point_deg')
+		geoCRSNode.appendChild(self.geoRefPointDegNode)
+		
+	def updateGeoRef(self):
 		self.geoRefPointDegNode.setAttribute('lat',str(self.originX))
 		self.geoRefPointDegNode.setAttribute('lon',str(self.originY))
-		geoCRSNode.appendChild(self.geoRefPointDegNode)
+		self.geoRefPointNode.setAttribute('lat',str(self.originX))
+		self.geoRefPointNode.setAttribute('lon',str(self.originY))
+		self.projRefPointNode.setAttribute('x',str(self.originX))
+		self.projRefPointNode.setAttribute('y',str(self.originY))
+		self.projCRSParamNode.appendChild(self.doc.createTextNode(str(self.UTMZone)+' N'))
+		self.projCRSSpecNode.appendChild(self.doc.createTextNode('+proj=utm +datum=WGS84 +zone='+str(self.UTMZone)))
 		
 	def blankPatternNode(self):
 		patternNode = self.doc.createElement('pattern')
@@ -342,5 +347,12 @@ class omap:
 		coordNode.setAttribute('y','0')
 		patternNode.appendChild(coordNode)
 		return patternNode
+		
+	def setUTMZoneFromCoord(self,node):
+		coord = getText(node.childNodes).split(' ')[0].split(',')
+		(lon,lat) = self.GMLCRS(float(coord[0]),float(coord[1]),inverse=True)
+		self.UTMZone = math.floor((lon + 180)/6) + 1;
+		print('UTM Zone '+str(self.UTMZone)+'N with meridian '+str((self.UTMZone-30.5)*6.0)+chr(0x00B0))
+		self.setOMAPCRS(proj='utm',zone=self.UTMZone,ellps='WGS84')
 		
 		

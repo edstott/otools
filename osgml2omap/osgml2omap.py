@@ -28,11 +28,24 @@ print('Reading features from '+gmlname)
 unrecognisedFeatures = {};
 #misfitOMAPs = {};
 mainOMAP = omap.omap();
-mainOMAP.setGMLCRS(GMLCRScode)
-mainOMAP.setOMAPCRS(OMAPCRScode)
+mainOMAP.setGMLCRS(init=GMLCRScode)
+#mainOMAP.setOMAPCRS(OMAPCRScode)
 objectCount = 0
-	
+
+#Setup streaming XML reader
 srcstrm = pulldom.parse(gmlname)
+
+#Find a coordinate (any coordinate) to choose the UTM Zone
+for event,node in srcstrm:
+	if event == pulldom.START_ELEMENT and node.tagName == 'gml:coordinates':
+		srcstrm.expandNode(node)
+		mainOMAP.setUTMZoneFromCoord(node)
+		break
+		
+
+#Setup streaming XML reader again
+srcstrm = pulldom.parse(gmlname)
+
 for event,node in srcstrm:
 	#Find topographicMembers
 	if event == pulldom.START_ELEMENT and node.tagName == 'osgb:topographicMember':
@@ -93,6 +106,7 @@ fileSplit[-1] = 'xmap'
 outFileName = '.'.join(fileSplit)
 
 mainOMAP.setMapOrigin()
+mainOMAP.updateGeoRef()
 print('Writing '+outFileName)
 mainOMAP.write(outFileName)
 
