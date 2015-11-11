@@ -16,59 +16,102 @@ if omap_folder not in sys.path:
 import omap
 
 DTMCRScode = 'epsg:27700' #OSGB 1936 / British National Grid
-OMAPCRScode = 'epsg:32631' #WGS 84 / UTM zone 31N
 outFileName = 'test.xmap'
 
-tilesize = 1000
-resolution = 0.5
-minclen = 40
-cavgspan = 30
-grad_smooth_win = 21
-csmooth_max = 151 #Maximum smoothing window for contours
-gradientFactor = 20E-3 #Higher for more smoothing
+minclen = 25
+grad_smooth_win = 11
+csmooth_max = 301 #Maximum smoothing window for contours
+gradientFactor = 6E-3 #Higher for more smoothing
 cwin_max = csmooth_max//2
 
-eastlconv = {'A':0,'B':1,'C':2,'D':3,'E':3,'F':0,'G':1,'H':2,'J':3,'K':3,'L':0,'M':1,'N':2,'O':3,'P':3,'Q':0,'R':1,'S':2,'T':3,'U':3,'V':0,'W':1,'X':2,'Y':3,'Z':3}
-northlconv = {'A':4,'B':4,'C':4,'D':4,'E':4,'F':3,'G':3,'H':3,'J':3,'K':3,'L':2,'M':2,'N':2,'O':2,'P':2,'Q':1,'R':1,'S':1,'T':1,'U':1,'V':0,'W':0,'X':0,'Y':0,'Z':0}
-gborigin = [1000000,500000]
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--input','-i',nargs=1,default=['DTM'],type=str,help='Path to folder containing LIDAR data')
 parser.add_argument('--UTMorigin','-U',nargs=2,type=float,help='Origin of the map in UTM coordinates')
 parser.add_argument('--output','-o',nargs=1,default=['test.xmap'],type=str,help='Name of the output file')
-parser.add_argument('--helper','-H',nargs=1,default=[0],type=int,help='Number of helper contours to between each contour')
+parser.add_argument('--helper','-H',nargs=1,default=[0],type=int,help='Number of helper contours to add between each contour')
 parser.add_argument('--datum','-d',nargs=1,default=[0.0],type=float,help='Height datum offset for contours')
 parser.add_argument('--idatum','-D',nargs=1,default=[0],type=int,help='Height datum offset for index contours as an integer number of standard contours')
 parser.add_argument('--index','-x',nargs=1,default=[0],type=int,help='Number of contours between index contours')
 parser.add_argument('--interval','-c',nargs=1,default=[5.0],type=float,help='Contour interval')
 parser.add_argument('--add_unfiltered','-u',action='store_true',default=False,help='Add unfiltered contours')
+parser.add_argument('--map_bounds','-b',nargs=4,type=float,help='Map bounds in UTM coordinates (W S E N)')
+parser.add_argument('--UTMZone','-z',nargs=1,default=[30],type=int,help='UTM Zone of map (e.g 30)')
 cargs = parser.parse_args()
 
 files = os.listdir(cargs.input[0])
-dtmfiles = []
-norths = []
-easts = []
+maptiles = []
+bounds = [+np.inf,+np.inf,-np.inf,-np.inf]
+
+#Initialise output
+cOMAP = omap.omap(map_type='contour')
+cOMAP.UTMZone = cargs.UTMZone[0]
+cOMAP.setGMLCRS(init=DTMCRScode)
+cOMAP.setOMAPCRS(proj='utm',zone=cargs.UTMZone[0],ellps='WGS84')
+
 for file in files:
-	m = re.match('([A-Z])([A-Z])(\d{2})(\d{2})([ns])([ew])_DTM_50CM\.asc',file)
+	m = re.match('([a-z])([a-z])(\d{2})(\d{2})_DTM_1m\.asc',file)
 	if m:
-		dtmfiles.append(file)
-		easts.append(eastlconv[m.group(1)]*500000 + eastlconv[m.group(2)]*100000 + int(m.group(3))*1000 + (m.group(6)=='e')*500 - gborigin[0])
-		norths.append(northlconv[m.group(1)]*500000 + northlconv[m.group(2)]*100000 + int(m.group(4))*1000 + (m.group(5)=='n')*500 - gborigin[1])
-		
-maporigin = [min(easts),min(norths)]
-mapsize = [max(easts)-maporigin[0]+tilesize*resolution,max(norths)-maporigin[1]+tilesize*resolution]
+		with open(os.path.join(cargs.input[0],file)) as mapfile:	#Find metadata for each data file
+			metadata = {'filename':file}
+			while True:
+				line = mapfile.readline().strip().split()
+				if len(line) > 2: #Break when we finish the header and reach the data
+					break
+				metadata[line[0]] = int(line[1])
+			
+			#Create bounds
+			metadata['W_GB'] = metadata['xllcorner']
+			metadata['S_GB'] = metadata['yllcorner']
+			metadata['E_GB'] = metadata['xllcorner']+metadata['ncols']*metadata['cellsize']
+			metadata['N_GB'] = metadata['yllcorner']+metadata['nrows']*metadata['cellsize']
+			UTM_SW = cOMAP.convertToUTM((metadata['W_GB'],metadata['S_GB']))
+			UTM_NE = cOMAP.convertToUTM((metadata['E_GB'],metadata['N_GB']))
+			metadata['W_UTM'] = UTM_SW[0]
+			metadata['S_UTM'] = UTM_SW[1]
+			metadata['E_UTM'] = UTM_NE[0]
+			metadata['N_UTM'] = UTM_NE[1]
+			
+			if cargs.map_bounds: #Check if file is within map bounds
+				if (cargs.map_bounds[0]<UTM_NE[0]) & (cargs.map_bounds[1]<UTM_NE[1]) & (cargs.map_bounds[2]>UTM_SW[0]) & (cargs.map_bounds[3]>UTM_SW[1]):
+					maptiles.append(metadata)
+			else:
+				maptiles.append(metadata)
+
+if len(maptiles) == 0:
+	print('No valid height map tiles')
+	exit()
+	
+print (str(len(maptiles))+' tiles overlap the map')				
+for tile in maptiles:
+	if tile['W_GB'] < bounds[0]:
+		bounds[0] = tile['W_GB']
+	if tile['S_GB'] < bounds[1]:
+		bounds[1] = tile['S_GB']
+	if tile['E_GB'] > bounds[2]:
+		bounds[2] = tile['E_GB']
+	if tile['N_GB'] > bounds[3]:
+		bounds[3] = tile['N_GB']
+				
+maporigin = (bounds[0],bounds[1])
+mapsize = (bounds[2]-bounds[0],bounds[3]-bounds[1])
+tilesize = maptiles[0]['ncols']
+resolution = maptiles[0]['cellsize']
+
+print ('OSGB origin: '+str(bounds[0])+','+str(bounds[1]))
+print ('Contour map size: '+str(mapsize[0])+'x'+str(mapsize[1]))
 
 x = np.arange(maporigin[0], maporigin[0]+mapsize[0], resolution)
 y = np.arange(maporigin[1], maporigin[1]+mapsize[1], resolution)
 x,y = np.meshgrid(x,y)
 z = np.zeros_like(x,dtype=np.float)
 
-for (dtmfile, east, north) in zip(dtmfiles, easts, norths):
-	print('Reading '+dtmfile)
-	ieast = int((east-maporigin[0])/resolution)
-	inorth = int((north-maporigin[1])/resolution)
+for tile in maptiles:
+	print('Reading '+tile['filename'])
+	ieast = int((tile['W_GB']-maporigin[0])/resolution)
+	inorth = int((tile['S_GB']-maporigin[1])/resolution)
 	
-	z[inorth:inorth+tilesize,ieast:ieast+tilesize] = np.flipud(np.genfromtxt(cargs.input[0] + '/' + dtmfile,dtype=np.float,delimiter=' ',skip_header=6))
+	z[inorth:inorth+tilesize,ieast:ieast+tilesize] = np.flipud(np.genfromtxt(os.path.join(cargs.input[0],tile['filename']),dtype=np.float,delimiter=' ',skip_header=6))
 
 #Calculate contour levels
 cint = cargs.interval[0]
@@ -79,7 +122,7 @@ contourLevels = {}
 
 #Generate helper contour levels
 if (cargs.helper[0] > 0):
-	hint = cint/cargs.helper[0]
+	hint = cint/(cargs.helper[0]+1)
 	hheights = np.arange(np.floor(hrange[0]/hint)*hint+datum, np.ceil(hrange[1]/hint)*hint+datum, hint)
 	contourLevels.update({h:'101.1' for h in hheights})
 
@@ -104,13 +147,6 @@ grad = ndimage.uniform_filter(grad,size=grad_smooth_win)
 grad[grad==0] = 0.001
 wsize = gradientFactor*cwin_max/grad
 wsize[wsize>cwin_max] = cwin_max
-
-#Initialise output
-cOMAP = omap.omap(map_type='contour');
-cOMAP.setGMLCRS(DTMCRScode)
-cOMAP.setOMAPCRS(OMAPCRScode)
-
-w = np.ones(cavgspan,'d')/cavgspan
 
 for cheight in contourLevels:
 	clist = contourdata.trace(cheight, cheight, 0)
@@ -139,13 +175,10 @@ for cheight in contourLevels:
 			
 			else:	#Contour is closed
 				#Calculate the maximum smoothing window (limited by contour length)
-				maxwin_c = min(cwin_max,clen-1)
+				maxwin_c = min(cwin_max,int(clen/4))
 				
 				#Extend contour by looping ends
 				xcontour = np.r_[contour[-maxwin_c:-1,:],contour[0:-1,:],contour[0:maxwin_c,:]]
-				
-				x = np.r_[contour[-cavgspan:,0],contour[:,0],contour[0:cavgspan-1,0]]
-				y = np.r_[contour[-cavgspan:,1],contour[:,1],contour[0:cavgspan-1,1]]
 								
 				#Iterate over the original vectors
 				for i in range(maxwin_c,maxwin_c+clen):
@@ -161,9 +194,9 @@ for cheight in contourLevels:
 		if cargs.add_unfiltered:
 			cOMAP.addLine(contour,'101.2')
 
-try:
+if cargs.UTMorigin:
 	cOMAP.setMapOrigin(UTM_origin=tuple([float(n) for n in cargs.UTMorigin]))
-except NameError:
+else:
 	cOMAP.setMapOrigin()
 print('Writing '+cargs.output[0])
 cOMAP.write(cargs.output[0])

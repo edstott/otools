@@ -356,3 +356,6 @@ class omap:
 		self.setOMAPCRS(proj='utm',zone=self.UTMZone,ellps='WGS84')
 		
 		
+	def convertToUTM(self,GMLCoords):
+		return pyproj.transform(self.GMLCRS,self.OMAPCRS,float(GMLCoords[0]),float(GMLCoords[1]))
+		
