@@ -18,7 +18,8 @@ import omap
 DTMCRScode = 'epsg:27700' #OSGB 1936 / British National Grid
 outFileName = 'test.xmap'
 
-minclen = 25
+minclen = 40 #Absolute minimum contour length
+maxclencull = 150 #Maximum contour length that may be culled due to flat gradient
 grad_smooth_win = 11
 csmooth_max = 301 #Maximum smoothing window for contours
 gradientFactor = 6E-3 #Higher for more smoothing
@@ -151,12 +152,13 @@ wsize[wsize>cwin_max] = cwin_max
 for cheight in contourLevels:
 	clist = contourdata.trace(cheight, cheight, 0)
 	clist = clist[:len(clist)//2]
-	print('Processing '+str(cheight)+'m contours as symbol '+contourLevels[cheight])
+	print('Processing '+str(len(clist))+' '+str(cheight)+'m contours as symbol '+contourLevels[cheight])
 	
 	for contour in clist:
-		clen = np.shape(contour)[0]
-		if  clen >= minclen:	#Check contour is longer than minimum length
+		clen = np.shape(contour)[0]	
+		if (clen >= minclen):	
 			scontour = np.zeros_like(contour)	#Allocate output contour
+			
 			if np.linalg.norm(contour[0,:]-contour[-1,:]) > 1.0: #Is contour open?
 				#Calculate the maximum smoothing window (limited by contour length)
 				maxwin_c = min(cwin_max,clen)
@@ -171,8 +173,9 @@ for cheight in contourLevels:
 					winsize_i = min(maxwin_c,wsize[wsize_idx[1],wsize_idx[0]])
 					#Find mean over given window
 					scontour[i-maxwin_c,:]=np.mean(xcontour[i-winsize_i:i+winsize_i,:],0)
-					
-			
+				
+				cOMAP.addLine(scontour,contourLevels[cheight])
+							
 			else:	#Contour is closed
 				#Calculate the maximum smoothing window (limited by contour length)
 				maxwin_c = min(cwin_max,int(clen/4))
@@ -181,15 +184,18 @@ for cheight in contourLevels:
 				xcontour = np.r_[contour[-maxwin_c:-1,:],contour[0:-1,:],contour[0:maxwin_c,:]]
 								
 				#Iterate over the original vectors
+				avggrad = 0.0
 				for i in range(maxwin_c,maxwin_c+clen):
 					#Find window size at this location in the map
 					wsize_idx = np.int32((xcontour[i,:]-maporigin)/resolution)
-					winsize_i = min(maxwin_c,wsize[wsize_idx[1],wsize_idx[0]])
+					winsize_r = wsize[wsize_idx[1],wsize_idx[0]]
+					winsize_i = min(maxwin_c,winsize_r)
+					avggrad += winsize_r/float(clen)
 					#Find mean over given window
 					scontour[i-maxwin_c,:]=np.mean(xcontour[i-winsize_i:i+winsize_i,:],0)
 					
-				
-			cOMAP.addLine(scontour,contourLevels[cheight])
+				if (clen > maxclencull) | (avggrad < clen/4.0):
+					cOMAP.addLine(scontour,contourLevels[cheight])
 			
 		if cargs.add_unfiltered:
 			cOMAP.addLine(contour,'101.2')
