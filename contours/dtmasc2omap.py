@@ -51,7 +51,7 @@ cOMAP.setGMLCRS(init=DTMCRScode)
 cOMAP.setOMAPCRS(proj='utm',zone=cargs.UTMZone[0],ellps='WGS84')
 
 for file in files:
-	m = re.match('([a-z])([a-z])(\d{2})(\d{2})_DTM_1m\.asc',file)
+	m = re.match('([a-z])([a-z])(\d{2})(\d{2})_DTM_2M\.asc',file)
 	if m:
 		with open(os.path.join(cargs.input[0],file)) as mapfile:	#Find metadata for each data file
 			metadata = {'filename':file}
@@ -73,12 +73,14 @@ for file in files:
 			metadata['E_UTM'] = UTM_NE[0]
 			metadata['N_UTM'] = UTM_NE[1]
 			
+			#print('File {} bounds {},{} {},{}'.format(metadata['filename'],UTM_SW[0],UTM_SW[1],UTM_NE[0],UTM_NE[1]))
+			
 			if cargs.map_bounds: #Check if file is within map bounds
 				if (cargs.map_bounds[0]<UTM_NE[0]) & (cargs.map_bounds[1]<UTM_NE[1]) & (cargs.map_bounds[2]>UTM_SW[0]) & (cargs.map_bounds[3]>UTM_SW[1]):
 					maptiles.append(metadata)
 			else:
 				maptiles.append(metadata)
-
+				
 if len(maptiles) == 0:
 	print('No valid height map tiles')
 	exit()
@@ -113,6 +115,8 @@ for tile in maptiles:
 	inorth = int((tile['S_GB']-maporigin[1])/resolution)
 	
 	z[inorth:inorth+tilesize,ieast:ieast+tilesize] = np.flipud(np.genfromtxt(os.path.join(cargs.input[0],tile['filename']),dtype=np.float,delimiter=' ',skip_header=6))
+	
+z[z<-50] = 0.0
 
 #Calculate contour levels
 cint = cargs.interval[0]
@@ -148,6 +152,7 @@ grad = ndimage.uniform_filter(grad,size=grad_smooth_win)
 grad[grad==0] = 0.001
 wsize = gradientFactor*cwin_max/grad
 wsize[wsize>cwin_max] = cwin_max
+wsize[wsize<0.0] = 0.0
 
 for cheight in contourLevels:
 	clist = contourdata.trace(cheight, cheight, 0)
@@ -170,11 +175,21 @@ for cheight in contourLevels:
 				for i in range(maxwin_c,maxwin_c+clen):
 					#Find window size at this location in the map
 					wsize_idx = np.int32((xcontour[i,:]-maporigin)/resolution)
-					winsize_i = min(maxwin_c,wsize[wsize_idx[1],wsize_idx[0]])
+					winsize_i = int(min(maxwin_c,wsize[wsize_idx[1],wsize_idx[0]]))
 					#Find mean over given window
-					scontour[i-maxwin_c,:]=np.mean(xcontour[i-winsize_i:i+winsize_i,:],0)
+					try:
+						scontour[i-maxwin_c,:]=np.mean(xcontour[i-winsize_i:i+1+winsize_i,:],0)
+					except:
+						print([i,maxwin_c,winsize_i])
+						raise
 				
-				cOMAP.addLine(scontour,contourLevels[cheight])
+				try:
+					cOMAP.addLine(scontour,contourLevels[cheight])
+				except:
+					print(contour)
+					print(xcontour)
+					print(scontour)
+					raise
 							
 			else:	#Contour is closed
 				#Calculate the maximum smoothing window (limited by contour length)
@@ -189,10 +204,10 @@ for cheight in contourLevels:
 					#Find window size at this location in the map
 					wsize_idx = np.int32((xcontour[i,:]-maporigin)/resolution)
 					winsize_r = wsize[wsize_idx[1],wsize_idx[0]]
-					winsize_i = min(maxwin_c,winsize_r)
+					winsize_i = int(min(maxwin_c,winsize_r))
 					avggrad += winsize_r/float(clen)
 					#Find mean over given window
-					scontour[i-maxwin_c,:]=np.mean(xcontour[i-winsize_i:i+winsize_i,:],0)
+					scontour[i-maxwin_c,:]=np.mean(xcontour[i-winsize_i:i+1+winsize_i,:],0)
 					
 				if (clen > maxclencull) | (avggrad < clen/4.0):
 					cOMAP.addLine(scontour,contourLevels[cheight])
